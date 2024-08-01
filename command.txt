@@ -1,0 +1,93 @@
+
+Warewulf:
+step 1 : setting up the OS
+
+setenforce 0
+sed -i 's/^SELINUX=.*$/SELINUX=disabled/g' /etc/selinux/config
+systemctl stop firewalld
+systemctl disable firewalld
+nmcli con up ens33
+nmcli con up ens34
+hostnamectl set-hostname master
+echo "`ip a | grep ens34 | tail -1 | cut -d' ' -f6|cut -c 1-12` master" >> /etc/hosts
+su
+
+
+step 2 : installing warewulf
+
+# adding the repository
+yum install -y https://repo.ctrliq.com/rhel/8/ciq-release.rpm
+
+# installing the warewulf
+yum install -y warewulf
+
+
+
+step 3 : making changes to warwulf.conf
+
+vim /etc/warewulf/warewulf.conf
+    Line no 2: change ip address
+    Line no 4: change network
+    Line no 14: change DHCP starting ip address
+    Line no 15: change DHCP ending ip address
+
+# configure the warewulf
+wwctl configure --all
+
+# check if all the services are running or not
+systemctl status dhcpd tftp nfs-server warewulfd
+
+# if services are not running then restart the services
+systemctl start dhcpd tftp nfs-server warewulfd
+
+# enable the services
+systemctl enable dhcpd tftp nfs-server warewulfd
+
+# check logs if necessary
+cat /var/log/warewulfd.log
+
+
+
+step 3 : booting the node using container
+
+# import container from docker hub
+wwctl container import docker://warewulf/rocky rocky-8
+
+
+# to check container list
+wwctl container list
+
+# to modify the container
+wwctl container exec rocky-8 /bin/bash
+    dnf install -y passwd
+    passwd root
+        new password : root
+        re enter password : root
+    exit
+    
+# sync host uid & gid with the container
+wwctl overlay build
+wwctl container syncuser --write rocky-8
+
+
+Step 4 : Add a node
+
+# to add a node without knowing MAC address
+wwctl node add node1 --ipaddr 10.10.10.232 --discoverable ens34
+
+# to add a container to a given node
+wwctl node set --container rocky-8 node1
+
+
+
+
+
+  
+
+
+
+
+
+
+
+  
